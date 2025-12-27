@@ -57,7 +57,7 @@ while True:
             frame,
             (x_min, y_min),
             (x_max, y_max),
-            (0, 255, 0),
+            (255, 0, 0),
             2,
         )
 
@@ -80,7 +80,7 @@ while True:
             (x_min, y_min - 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.2,
-            (0, 255, 0),
+            (255, 0, 0),
             3,
         )
 
@@ -91,7 +91,7 @@ while True:
             (x_min, y_min - 10),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
-            (0, 255, 0),
+            (255, 0, 0),
             2,
         )
 
