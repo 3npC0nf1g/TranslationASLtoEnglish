@@ -13,6 +13,7 @@ from src.inference.preprocess import preprocess_frame
 # CONFIG
 # --------------------
 CHECKPOINT_PATH = "checkpoints/asl-vit-epoch=16-val_acc=0.96.ckpt"
+TEST_IMAGE_PATH = "assets/hand1_q_bot_seg_2_cropped.jpeg"
 
 DEVICE = (
     "mps"
@@ -22,71 +23,59 @@ DEVICE = (
     else "cpu"
 )
 
-INFER_EVERY_N_FRAMES = 1
+class_names = list("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 # --------------------
-# INIT
+# LOAD MODEL
 # --------------------
 model = load_model(CHECKPOINT_PATH).to(DEVICE)
 model.eval()
 
 hand_detector = HandDetector()
-cap = cv2.VideoCapture(0)
-
-class_names = list("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-frame_count = 0
-last_prediction = ""
 
 # --------------------
-# LOOP
+# LOAD IMAGE
 # --------------------
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+"""
+if image is None:
+    raise ValueError(f"Could not load image at {TEST_IMAGE_PATH}")
 
-    roi, bbox = hand_detector.detect(frame)
+roi, bbox = hand_detector.detect(image)
 
-    if roi is not None and bbox is not None:
-        x_min, y_min, x_max, y_max = bbox
+if roi is None:
+    print("No hand detected in test image")
+    exit()
 
-        # 🔲 DRAW BOX FIRST (visual feedback)
-        cv2.rectangle(
-            frame,
-            (x_min, y_min),
-            (x_max, y_max),
-            (0, 255, 0),
-            2,
-        )
+# --------------------
+# DRAW BOX + LANDMARKS
+# --------------------
+x_min, y_min, x_max, y_max = bbox
+cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+"""
+# --------------------
+# PREPROCESS & INFER
+# --------------------
+image = cv2.imread(TEST_IMAGE_PATH)
+x = preprocess_frame(image).to(DEVICE)
 
-        # 🔁 INFERENCE EVERY N FRAMES
-        if frame_count % INFER_EVERY_N_FRAMES == 0:
-            x = preprocess_frame(roi).to(DEVICE)
+with torch.no_grad():
+    logits = model(x)
+    probs = torch.softmax(logits, dim=1)
+    pred_idx = probs.argmax(dim=1).item()
+    confidence = probs.max().item()
 
-            with torch.no_grad():
-                logits = model(x)
-                pred_idx = logits.argmax(dim=1).item()
-                last_prediction = class_names[pred_idx]
+print(f"Prediction: {class_names[pred_idx]} | confidence={confidence:.2f}")
 
-        # 🧠 SHOW PREDICTION
-        cv2.putText(
-            frame,
-            f"Predicted: {last_prediction}",
-            (x_min, y_min - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1.2,
-            (0, 255, 0),
-            3,
-        )
+"""cv2.putText(
+    image,
+    f"{class_names[pred_idx]} ({confidence:.2f})",
+    (x_min, y_min - 10),
+    cv2.FONT_HERSHEY_SIMPLEX,
+    1.2,
+    (0, 255, 0),
+    3,
+)"""
 
-    cv2.imshow("ASL2English - Letters", frame)
-
-    # REQUIRED FOR macOS
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
-
-    frame_count += 1
-
-cap.release()
+cv2.imshow("Test Image Inference", image)
+cv2.waitKey(0)
 cv2.destroyAllWindows()
