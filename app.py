@@ -2,6 +2,7 @@ import sys
 import cv2
 import torch
 import os
+import torch.nn.functional as F
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "")))
 
@@ -12,7 +13,7 @@ from src.inference.preprocess import preprocess_frame
 # --------------------
 # CONFIG
 # --------------------
-CHECKPOINT_PATH = "checkpoints/asl-vit-epoch=16-val_acc=0.96.ckpt"
+CHECKPOINT_PATH = "checkpoints/asl-vit-epoch=17-val_acc=0.97.ckpt"
 DEVICE = (
     "mps"
     if torch.backends.mps.is_available()
@@ -21,12 +22,13 @@ DEVICE = (
     else "cpu"
 )
 
-INFER_EVERY_N_FRAMES = 1
+INFER_EVERY_N_FRAMES = 8
 
 # --------------------
 # INIT
 # --------------------
 model = load_model(CHECKPOINT_PATH).to(DEVICE)
+model.eval()
 
 hand_detector = HandDetector()
 cap = cv2.VideoCapture(0)
@@ -35,6 +37,7 @@ class_names = list("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 frame_count = 0
 last_prediction = ""
+last_confidence = 0.0
 
 # --------------------
 # LOOP
@@ -49,7 +52,7 @@ while True:
     if roi is not None and bbox is not None:
         x_min, y_min, x_max, y_max = bbox
 
-        # 🔲 DRAW BOX FIRST (visual feedback)
+        # DRAW BOX
         cv2.rectangle(
             frame,
             (x_min, y_min),
@@ -58,24 +61,38 @@ while True:
             2,
         )
 
-        # 🔁 INFERENCE EVERY N FRAMES
+        # INFERENCE EVERY N FRAMES
         if frame_count % INFER_EVERY_N_FRAMES == 0:
             x = preprocess_frame(roi).to(DEVICE)
 
             with torch.no_grad():
                 logits = model(x)
-                pred_idx = logits.argmax(dim=1).item()
-                last_prediction = class_names[pred_idx]
+                probs = F.softmax(logits, dim=1)
+                conf, pred_idx = probs.max(dim=1)
 
-        # 🧠 SHOW PREDICTION
+            last_prediction = class_names[pred_idx.item()]
+            last_confidence = conf.item()
+
+        # SHOW PREDICTION
         cv2.putText(
             frame,
             f"Predicted: {last_prediction}",
-            (x_min, y_min - 10),
+            (x_min, y_min - 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.2,
             (0, 255, 0),
             3,
+        )
+
+        # SHOW CONFIDENCE
+        cv2.putText(
+            frame,
+            f"Confidence: {last_confidence:.2f}",
+            (x_min, y_min - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 0),
+            2,
         )
 
     cv2.imshow("ASL2English - Letters", frame)
