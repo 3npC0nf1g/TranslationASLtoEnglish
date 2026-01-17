@@ -76,6 +76,23 @@ checkpoints/landmarks_mlp.pt
 
 ## Running Webcam Inference
 
+
+
+
+### Create a Python Virtual Environment
+
+Before installing dependencies, it is recommended to create a virtual environment:
+
+```bash
+# Create a virtual environment
+python3 -m venv venv
+
+# Activate the virtual environment
+source venv/bin/activate  # For macOS/Linux
+# On Windows:
+venv\Scripts\activate
+```
+
 ### Install dependencies
 
 ```bash

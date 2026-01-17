@@ -37,8 +37,7 @@ def extract_landmarks(image_path):
     if norm > 0:
         points /= norm
 
-    return points.flatten()  # (63,)
-
+    return points.flatten() 
 
 def main():
     labels = sorted([d.name for d in RAW_DATA_DIR.iterdir() if d.is_dir()])
