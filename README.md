@@ -122,7 +122,6 @@ Key parameters can be adjusted in `webcam.py` or inference modules:
 | Speed      | ❌ Slower    | ✅ Fast          |
 | Robustness | ❌ Sensitive | ✅ Stable        |
 | Model size | ❌ Large     | ✅ Small         |
-| Deployment | ❌ Heavy     | ✅ Edge‑friendly |
 
 ---
 
