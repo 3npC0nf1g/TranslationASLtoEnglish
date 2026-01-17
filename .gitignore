@@ -217,5 +217,4 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 /models/checkpoints/asl-vit-epoch=17-val_acc=0.97.ckpt
-/checkpoints/
 /models/

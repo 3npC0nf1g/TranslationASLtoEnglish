@@ -5,26 +5,17 @@ from pathlib import Path
 from tqdm import tqdm
 import random
 
-# --------------------
-# CONFIG
-# --------------------
 RAW_DATA_DIR = Path("data/raw")
 OUT_DATA_DIR = Path("data/landmarks")
-TRAIN_RATIO = 0.8   # 90% train / 10% val
+TRAIN_RATIO = 0.8
 IMAGE_EXTS = {".jpg", ".png", ".jpeg"}
 
-# --------------------
-# INIT MEDIAPIPE
-# --------------------
 mp_hands = mp.solutions.hands.Hands(
     static_image_mode=True,
     max_num_hands=1,
     min_detection_confidence=0.5
 )
 
-# --------------------
-# LANDMARK EXTRACTION
-# --------------------
 def extract_landmarks(image_path):
     img = cv2.imread(str(image_path))
     if img is None:
@@ -40,17 +31,15 @@ def extract_landmarks(image_path):
 
     points = np.array([[p.x, p.y, p.z] for p in lm.landmark], dtype=np.float32)
 
-    # 🔑 NORMALISATION (CRUCIALE)
-    points -= points[0]                 # wrist at origin
-    norm = np.linalg.norm(points[9])    # middle MCP
+
+    points -= points[0]
+    norm = np.linalg.norm(points[9])
     if norm > 0:
         points /= norm
 
     return points.flatten()  # (63,)
 
-# --------------------
-# MAIN LOOP
-# --------------------
+
 def main():
     labels = sorted([d.name for d in RAW_DATA_DIR.iterdir() if d.is_dir()])
 
@@ -85,7 +74,7 @@ def main():
                 out_path = out_dir / f"{label}_{i:05d}.npy"
                 np.save(out_path, vec)
 
-    print("\n✅ Dataset landmarks-only created!")
+    print("\n Dataset landmarks-only created!")
 
 # --------------------
 if __name__ == "__main__":

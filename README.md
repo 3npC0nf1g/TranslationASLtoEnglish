@@ -1,87 +1,150 @@
+# ASL2English: Hand Gesture Recognition (Landmarks‑Only)
 
-# ASL2English — Real-Time ASL Fingerspelling to English App
+This project implements **real‑time American Sign Language (ASL) alphanumeric recognition** using **hand landmarks only** (no raw images at inference time).
 
-This project is an end-to-end machine learning application that translates **American Sign Language (ASL) fingerspelling letters** into **English words** in real time using a webcam.
+The system relies on:
 
-It includes:
+* **MediaPipe Hands** for 3D hand landmark extraction
+* A lightweight **PyTorch MLP** trained on normalized landmarks
+* **OpenCV** for real‑time webcam inference
 
-- A deep learning model trained on the ASL alphabet (A–Z)
-- Real-time hand tracking using MediaPipe
-- Letter prediction and smoothing
-- Debounce logic to avoid repeated letters
-- Word construction + dictionary autocorrect
-- Backend API + frontend interface
+The design follows **single‑responsibility principles** and is structured for clean experimentation, training, and production inference.
 
 ---
 
-## Features
+## Key Features
 
-- **Real-time hand detection** (MediaPipe)
-- **Live ASL letter classification** (CNN or MobileNetV3)
-- **Automatic word building**
-- **English autocorrect**
-- **Clean modular architecture**
+* Landmarks‑only inference (robust to lighting & background)
+* Fast real‑time webcam prediction
+* Lightweight MLP (63‑dim input)
+* Clean, modular architecture
+* Dataset preprocessing pipeline included
+
+---
+
+## Dataset
+
+The model is trained using the **ASL Alphanumeric Dataset** from Kaggle:
+
+[https://www.kaggle.com/datasets/ayuraj/asl-dataset](https://www.kaggle.com/datasets/ayuraj/asl-dataset)
+
+### Dataset description
+
+* Classes: `0–9` and `A–Z`
+* Format: RGB images of single hand gestures
+* Usage in this project:
+
+  * Images are **not used directly** by the model
+  * Each image is processed once to extract **21 hand landmarks (x, y, z)**
+  * Resulting feature vector size: **63 floats per sample**
 
 ---
 
 ## Model
 
-The classifier is trained on the ASL Alphabet Dataset from Kaggle:
+**LandmarksMLP** (PyTorch)
 
-- 26 classes (A–Z)
-- Thousands of labeled images
-- Images resized and augmented for robustness
+* Input: `(63,)` flattened landmarks
+* Output: `36` classes (`0–9`, `A–Z`)
+* Loss: Cross‑Entropy
+* Optimizer: Adam
 
-You can easily swap architectures (CNN, MobileNet, EfficientNet).
-
----
-
-## Folder Structure (Simplified)
+The model was **trained on Google Colab** using the notebook:
 
 ```
-
-asl2english/
-│
-├── data/               # Raw + processed dataset
-├── notebooks/          # Jupyter notebooks (training, exploration)
-├── src/
-│   ├── model/          # Training, evaluation, export
-│   ├── inference/      # Real-time detection + prediction
-│   ├── api/            # Optional FastAPI backend
-│   └── frontend/       # React UI
-│
-├── models/             # Saved models
-└── README.md
-
+notebooks/00_landmarks_MLP.ipynb
 ```
 
----
-
-## Real-Time Pipeline
-
-1. Detect hand landmarks  
-2. Extract Region of Interest (ROI)  
-3. Preprocess ROI  
-4. Predict ASL letter  
-5. Smooth predictions  
-6. Build words  
-7. Autocorrect to English  
-
----
-
-## Technologies
-
-- Python, PyTorch Lightning
-- MediaPipe Hands
-- OpenCV
-- FastAPI
-- React
-- ONNX / TFLite for deployment
-
----
-
-## Contact
-
-Feel free to reach out with questions or suggestions!
+The final checkpoint is stored locally:
 
 ```
+checkpoints/landmarks_mlp.pt
+```
+---
+## Data Processing Pipeline
+
+1. **Raw images** (`data/raw/<class>/*.jpg`)
+2. MediaPipe extracts 21 hand landmarks
+3. Landmarks are normalized:
+
+   * Translation: wrist at origin
+   * Scale: normalized by middle‑finger MCP distance
+4. Saved as `.npy` vectors of shape `(63,)`
+5. Used for training the MLP
+
+---
+
+## Running Webcam Inference
+
+### Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Run the webcam app
+
+For MaxOS/Linux:
+```bash
+python3 -m src.app.webcam
+```
+For Windows:
+```bash
+python -m src.app.webcam
+```
+Controls:
+
+* `q` → quit
+
+The app will:
+
+* Detect one hand
+* Extract landmarks
+* Run inference every N frames
+* Display predicted class and confidence
+
+---
+
+## Configuration
+
+Key parameters can be adjusted in `webcam.py` or inference modules:
+
+* `INFER_EVERY_N_FRAMES`
+* MediaPipe confidence thresholds
+* Model checkpoint path
+
+---
+
+## Why Landmarks‑Only?
+
+| Aspect     | Image‑based | Landmarks‑only  |
+| ---------- | ----------- | --------------- |
+| Speed      | ❌ Slower    | ✅ Fast          |
+| Robustness | ❌ Sensitive | ✅ Stable        |
+| Model size | ❌ Large     | ✅ Small         |
+| Deployment | ❌ Heavy     | ✅ Edge‑friendly |
+
+---
+
+# Future Improvements
+
+* Temporal smoothing (gesture stability)
+* ONNX / TensorRT export
+* REST or WebSocket API
+* Sequence‑based recognition (words)
+* Dockerized deployment
+
+---
+
+## License
+
+This project is for educational and research purposes.
+Dataset license applies as defined on Kaggle.
+
+---
+
+## Acknowledgements
+
+* MediaPipe Hands
+* PyTorch
+* Kaggle ASL Dataset contributors
