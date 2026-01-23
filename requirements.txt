@@ -1,8 +1,5 @@
 fastapi==0.104.1
 uvicorn==0.24.0
-
 torch
 numpy
-
-opencv-python-headless==4.8.1.78
 mediapipe==0.10.7
