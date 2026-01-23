@@ -1,4 +1,4 @@
-# app.py - FastAPI Backend Server
+# FastAPI Backend Server
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -32,9 +32,11 @@ app = FastAPI(title="ASL2English API", version="1.0.0")
 # Enable CORS (Critical for browser access)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact domains
+    allow_origins=["http://localhost:3000",
+                   "http://192.168.2.28:3000",
+                   "https://deal-me-n64n.vercel.app/"],  # In production, specify exact domains
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["POST, GET"],
     allow_headers=["*"],
 )
 
