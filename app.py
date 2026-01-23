@@ -34,9 +34,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000",
                    "http://192.168.2.28:3000",
-                   "https://deal-me-n64n.vercel.app/"],  # In production, specify exact domains
+                   "https://deal-me-n64n.vercel.app"],  # In production, specify exact domains
     allow_credentials=True,
-    allow_methods=["POST, GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
