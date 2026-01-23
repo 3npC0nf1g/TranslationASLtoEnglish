@@ -1,11 +1,4 @@
 {
   "buildCommand": "pip install -r requirements.txt",
-  "env": {
-    "PYTHON_VERSION": "3.10"
-  },
-  "functions": {
-    "api/app.py": {
-      "runtime": "python3.10"
-    }
-  }
+  "runtime": "python3.10"
 }
