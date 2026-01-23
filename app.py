@@ -1,8 +1,9 @@
-# FastAPI Backend Server
+# app.py - Railway compatible (NO OpenCV)
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import cv2
+from PIL import Image
+import io
 import torch
 import numpy as np
 import base64
@@ -29,87 +30,104 @@ logger = logging.getLogger(__name__)
 # Initialize app
 app = FastAPI(title="ASL2English API", version="1.0.0")
 
-# Enable CORS (Critical for browser access)
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000",
-                   "http://192.168.2.28:3000",
-                   "https://deal-me-n64n.vercel.app"],  # In production, specify exact domains
+    allow_origins=[
+        "http://localhost:3000",
+        "http://192.168.2.28:3000",
+        "https://deal-me-n64n.vercel.app",
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Initialize models ONCE at startup (not per request)
-logger.info("Initializing models...")
+# Initialize models
+logger.info("=" * 60)
+logger.info("Initializing ASL2English models...")
+logger.info(f"Device: {DEVICE}")
+logger.info("=" * 60)
+
+extractor = None
+inferencer = None
+
 try:
     extractor = HandLandmarkExtractor()
+    logger.info("✓ HandLandmarkExtractor loaded")
+
     inferencer = LandmarksInferencer(
         checkpoint_path=CHECKPOINT_PATH,
         class_names=CLASS_NAMES,
         device=DEVICE,
     )
-    logger.info(f"Models loaded successfully on device: {DEVICE}")
+    logger.info("✓ LandmarksInferencer loaded")
+    logger.info("✓ Models loaded successfully!")
+
 except Exception as e:
-    logger.error(f"Failed to load models: {e}")
-    raise
+    logger.error(f"✗ Failed to load models: {e}")
 
 
-# Request/Response Models
+# Models
 class FrameRequest(BaseModel):
-    frame: str  # Base64 encoded image
+    frame: str
 
 
 class PredictionResponse(BaseModel):
+    success: bool
     prediction: str
     confidence: float
     landmarks: list = None
     hand_box: dict = None
-    success: bool
 
 
-# Health check endpoint
+# Health check
 @app.get("/health")
 def health_check():
     return {
-        "status": "healthy",
+        "status": "healthy" if extractor else "degraded",
         "device": DEVICE,
-        "models_loaded": True
+        "models_loaded": extractor is not None,
     }
 
 
-# Main inference endpoint
+@app.get("/")
+def root():
+    return {"name": "ASL2English API", "version": "1.0.0"}
+
+
+# Inference
 @app.post("/predict", response_model=PredictionResponse)
 def predict(request: FrameRequest):
-    """
-    Receive a base64-encoded frame and return hand gesture prediction.
+    """Receive base64 frame and return prediction."""
+    if extractor is None or inferencer is None:
+        return PredictionResponse(
+            success=False,
+            prediction="Error",
+            confidence=0.0
+        )
 
-    Args:
-        request: JSON with 'frame' key containing base64 image
-
-    Returns:
-        PredictionResponse with prediction, confidence, and landmarks
-    """
     try:
-        # Decode base64 frame
+        # Decode frame using Pillow (NO OpenCV!)
         img_data = base64.b64decode(request.frame)
-        nparr = np.frombuffer(img_data, np.uint8)
-        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        image = Image.open(io.BytesIO(img_data))
+        frame = np.array(image)
 
-        if frame is None:
-            raise ValueError("Failed to decode image")
+        # Flip horizontally (mirror effect)
+        frame = np.fliplr(frame)
 
-        # Flip frame (was cv2.flip(frame, 1) in original)
-        frame = cv2.flip(frame, 1)
+        # Convert RGB to BGR if needed (for hand landmark extractor)
+        if len(frame.shape) == 3 and frame.shape[2] == 3:
+            frame = frame[:, :, ::-1]  # RGB to BGR
 
-        # Extract hand landmarks
+        # Extract landmarks
         result = extractor.extract(frame)
 
         if result is None:
             return PredictionResponse(
+                success=False,
                 prediction="No hand",
-                confidence=0.0,
-                success=False
+                confidence=0.0
             )
 
         landmarks, hand = result
@@ -117,8 +135,8 @@ def predict(request: FrameRequest):
         # Get prediction
         prediction, confidence = inferencer.predict(landmarks)
 
-        # Extract hand bounding box
-        h, w, _ = frame.shape
+        # Extract bounding box
+        h, w = frame.shape[:2]
         xs = [int(p.x * w) for p in hand.landmark]
         ys = [int(p.y * h) for p in hand.landmark]
 
@@ -129,7 +147,7 @@ def predict(request: FrameRequest):
             "y_max": int(max(ys)),
         }
 
-        # Prepare landmarks for frontend visualization
+        # Prepare landmarks
         landmarks_list = [
             {
                 "x": int(p.x * w),
@@ -140,33 +158,23 @@ def predict(request: FrameRequest):
         ]
 
         return PredictionResponse(
+            success=True,
             prediction=prediction,
             confidence=float(confidence),
             landmarks=landmarks_list,
-            hand_box=hand_box,
-            success=True
+            hand_box=hand_box
         )
 
     except Exception as e:
         logger.error(f"Prediction error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# Optional: Batch prediction endpoint
-@app.post("/predict-batch")
-def predict_batch(requests: list[FrameRequest]):
-    """
-    Process multiple frames in one request (useful for optimization).
-    """
-    results = []
-    for req in requests:
-        result = predict(req)
-        results.append(result)
-    return results
+        return PredictionResponse(
+            success=False,
+            prediction="Error",
+            confidence=0.0
+        )
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    # Run with: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
     uvicorn.run(app, host="0.0.0.0", port=8000)
