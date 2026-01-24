@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: asl2english-api
+    ports:
+      - "8000:8000"   # Maps container port 8000 → localhost:8000
+    volumes:
+      - ./checkpoints:/app/checkpoints  # Mount checkpoints so you can update without rebuilding
+    environment:
+      - DEVICE=cpu                       # Force CPU usage (optional)
+    restart: unless-stopped
